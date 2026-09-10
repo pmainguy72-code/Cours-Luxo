@@ -491,8 +491,14 @@ document.getElementById("btn-no").addEventListener("click", () => answerCard(fal
 document.getElementById("btn-yes").addEventListener("click", () => answerCard(true));
 
 document.getElementById("close-session").addEventListener("click", () => {
-  showScreen("home");
-  renderRecap();
+  if(session.results.length === 0){
+    showScreen("home");
+    renderRecap();
+    return;
+  }
+  if(confirm("Terminer la session maintenant ? Tu as répondu à " + session.results.length + " / " + session.queue.length + " phrases.")){
+    endSession();
+  }
 });
 
 document.getElementById("btn-replay-missed").addEventListener("click", () => {
