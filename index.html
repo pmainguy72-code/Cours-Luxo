@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Luxo Cards</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Luxo Cards">
+<meta name="theme-color" content="#211C15">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#211C15;
+    --paper:#F1E4B8;
+    --paper-alt:#E9D89C;
+    --ink:#2B2016;
+    --ink-soft:#7A6B4E;
+    --rule:#C9B989;
+    --blue:#3E7CB1;
+    --blue-deep:#2E5F8A;
+    --correct:#3F7D53;
+    --incorrect:#B23A48;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--paper);
+    font-family:'IBM Plex Sans', -apple-system, sans-serif;
+    display:flex;
+    justify-content:center;
+    min-height:100dvh;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  #app{
+    width:100%;
+    max-width:460px;
+    padding:28px 22px 34px;
+    display:flex;
+    flex-direction:column;
+    min-height:100dvh;
+  }
+  .screen{display:none; flex:1; flex-direction:column;}
+  .screen.active{display:flex;}
+
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:2.1rem;
+    margin:8px 0 2px;
+    letter-spacing:-0.01em;
+  }
+  .subtitle{color:var(--ink-soft); color:#B7A57A; font-size:0.95rem; margin:0 0 28px;}
+
+  button{font-family:inherit; border:none; cursor:pointer;}
+  button:focus-visible, .card:focus-visible{outline:3px solid var(--blue); outline-offset:2px;}
+
+  .dir-btn{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:10px;
+    padding:18px 20px;
+    font-size:1.05rem;
+    font-weight:500;
+    text-align:left;
+    margin-bottom:14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow:0 3px 0 var(--rule);
+  }
+  .dir-btn .arrow{font-family:'Fraunces', serif; font-size:1.3rem; color:var(--blue-deep);}
+  .dir-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--rule);}
+
+  .recap{
+    margin-top:auto;
+    padding-top:22px;
+    border-top:1px solid #3A3327;
+    font-size:0.9rem;
+    color:#B7A57A;
+    line-height:1.5;
+  }
+  .reset-link{
+    background:none; color:#8A7B5C; text-decoration:underline;
+    font-size:0.82rem; padding:0; margin-top:14px;
+  }
+
+  /* session */
+  .top-row{display:flex; align-items:center; gap:14px; margin-bottom:22px;}
+  .progress-track{flex:1; height:6px; background:#3A3327; border-radius:3px; overflow:hidden;}
+  .progress-fill{height:100%; background:var(--blue); width:0%; transition:width .25s ease;}
+  .progress-label{font-size:0.85rem; color:#B7A57A; white-space:nowrap; font-variant-numeric:tabular-nums;}
+  .close-btn{background:none; color:#B7A57A; font-size:1.3rem; line-height:1; padding:4px 8px;}
+
+  .card{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:14px;
+    padding:0;
+    min-height:260px;
+    display:flex;
+    flex-direction:column;
+    box-shadow:0 10px 24px rgba(0,0,0,.35);
+    border:2px solid transparent;
+    transition:border-color .18s ease;
+    overflow:hidden;
+  }
+  .card-binding{display:flex; justify-content:center; gap:22px; padding:16px 0 4px;}
+  .card-binding span{width:9px; height:9px; border-radius:50%; background:var(--ink); opacity:.85;}
+  .card-body{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:18px 26px 26px;
+    gap:16px;
+  }
+  .prompt-text{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:1.5rem;
+    line-height:1.35;
+  }
+  .tap-hint{font-size:0.85rem; color:var(--ink-soft);}
+  .divider{width:56px; height:2px; background:var(--rule);}
+  .answer-text{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:1.3rem;
+    line-height:1.35;
+    color:var(--blue-deep);
+  }
+  .card.flash-correct{border-color:var(--correct);}
+  .card.flash-incorrect{border-color:var(--incorrect);}
+
+  .thumbs{display:flex; gap:16px; margin-top:22px;}
+  .thumb-btn{
+    flex:1;
+    padding:16px 0;
+    border-radius:10px;
+    font-size:1rem;
+    font-weight:600;
+    color:var(--paper);
+  }
+  .thumb-btn.no{background:var(--incorrect);}
+  .thumb-btn.yes{background:var(--correct);}
+  .thumb-btn:disabled{opacity:.35;}
+  .thumb-btn:active{transform:translateY(1px);}
+
+  /* results */
+  .score-big{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:3.2rem;
+    margin:6px 0 0;
+  }
+  .score-sub{color:#B7A57A; margin-bottom:26px;}
+  .missed-list{
+    list-style:none;
+    margin:0 0 8px;
+    padding:0;
+    flex:1;
+    overflow-y:auto;
+  }
+  .missed-list li{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:10px;
+  }
+  .missed-lu{font-weight:600;}
+  .missed-en{color:var(--ink-soft); font-size:0.92rem; margin-top:2px;}
+  .no-missed{color:#B7A57A; padding:12px 0;}
+
+  .actions{display:flex; flex-direction:column; gap:12px; margin-top:18px;}
+  .action-btn{
+    padding:16px;
+    border-radius:10px;
+    font-size:1rem;
+    font-weight:500;
+  }
+  .action-btn.primary{background:var(--paper); color:var(--ink);}
+  .action-btn.secondary{background:transparent; color:var(--paper); border:1px solid #4A4232;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <section id="screen-home" class="screen active">
+    <h1>Luxo Cards</h1>
+    <p class="subtitle">41 phrases &middot; Sproochentest</p>
+
+    <button class="dir-btn" data-dir="lu-en">
+      <span>Lëtzebuergesch &rarr; Anglais</span>
+      <span class="arrow">&rarr;</span>
+    </button>
+    <button class="dir-btn" data-dir="en-lu">
+      <span>Anglais &rarr; Lëtzebuergesch</span>
+      <span class="arrow">&rarr;</span>
+    </button>
+
+    <div class="recap" id="recap"></div>
+    <button class="reset-link" id="reset-stats">Réinitialiser les statistiques</button>
+  </section>
+
+  <!-- SESSION -->
+  <section id="screen-session" class="screen">
+    <div class="top-row">
+      <button class="close-btn" id="close-session" aria-label="Quitter">&times;</button>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-label" id="progress-label">1 / 41</div>
+    </div>
+
+    <div class="card" id="card" tabindex="0" role="button" aria-pressed="false">
+      <div class="card-binding"><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="card-body">
+        <div class="prompt-text" id="prompt-text"></div>
+        <div class="tap-hint" id="tap-hint">Touche pour révéler</div>
+        <div class="divider" id="divider" style="display:none;"></div>
+        <div class="answer-text" id="answer-text" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div class="thumbs">
+      <button class="thumb-btn no" id="btn-no" disabled>Je ne savais pas</button>
+      <button class="thumb-btn yes" id="btn-yes" disabled>Je savais</button>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="screen-results" class="screen">
+    <h1 style="margin-bottom:0;">Session terminée</h1>
+    <p class="score-big" id="score-big"></p>
+    <p class="score-sub" id="score-sub"></p>
+
+    <ul class="missed-list" id="missed-list"></ul>
+
+    <div class="actions">
+      <button class="action-btn primary" id="btn-replay-missed">Rejouer les ratées</button>
+      <button class="action-btn secondary" id="btn-restart-all">Recommencer tout</button>
+      <button class="action-btn secondary" id="btn-home">Accueil</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// -----------------------------------------------------------------
+// Data — ids are stable. When new phrases are added later, always
+// append with new ids so past stats (per id) stay valid.
+// -----------------------------------------------------------------
+const PHRASES = [
+  {id:1, lu:"Wéi geet et (dir/Iech)?", en:"How's it going? (How are you? (casual)/(polite))"},
+  {id:2, lu:"(Mir geet et) Gutt, an dir/Iech?", en:"(I'm doing) Fine, and you? (casual/polite)"},
+  {id:3, lu:"Mir geet et och gutt, merci!", en:"I'm doing fine too, thank you!"},
+  {id:4, lu:"Wéi ass däin/Ären Numm?", en:"What's your name? (casual/polite)"},
+  {id:5, lu:"Vu wou kënns du/kommt Dir?", en:"Where do you come from? (casual/polite)"},
+  {id:6, lu:"Zënter wéini liefs du/lieft Dir zu Lëtzebuerg?", en:"Since when are you living in Luxembourg?"},
+  {id:7, lu:"Wéini bass du/sidd Dir gebuer?", en:"When are you (pol/casual) born?"},
+  {id:8, lu:"Schéin dech/Iech kennenzeléieren.", en:"Nice to meet you (casual/polite)"},
+  {id:9, lu:"Merci fir d'Gespréich.", en:"Thanks for the talk."},
+  {id:10, lu:"Nach e schéinen Dag.", en:"Have a nice day."},
+  {id:11, lu:"Dir/Iech och e schéinen Dag.", en:"A nice day to you (casual/polite) too."},
+  {id:12, lu:"Merci gläichfalls!", en:"Thanks and the same to you!"},
+  {id:13, lu:"Bis eng aner Kéier.", en:"See you/Until another time."},
+  {id:14, lu:"Bis demnächst.", en:"See you soon. (lit. until soon)"},
+  {id:15, lu:"Wéi vill Auer ass et?", en:"What time is it?"},
+  {id:16, lu:"Et ass Mëtternuecht (/Hallefnuecht).", en:"Midnight"},
+  {id:17, lu:"hei", en:"here"},
+  {id:18, lu:"do", en:"there"},
+  {id:19, lu:"dohannen", en:"over there"},
+  {id:20, lu:"Sport maachen", en:"to exercise"},
+  {id:21, lu:"Ech maache gär Sport.", en:"I like to exercise."},
+  {id:22, lu:"pro Woch/d'Woch", en:"per week"},
+  {id:23, lu:"an de Fitness goen", en:"to go to the gym"},
+  {id:24, lu:"Ech ginn dräi mol pro Woch an de Fitness.", en:"I go to the gym three times per week."},
+  {id:25, lu:"Gewiichter", en:"weights"},
+  {id:26, lu:"Ech hiewe gär Gewiichter.", en:"I like to lift weights."},
+  {id:27, lu:"an der Lescht", en:"lately"},
+  {id:28, lu:"An der lescht maachen ech méi Sport.", en:"Lately, I am exercising more."},
+  {id:29, lu:"d'Sportart (Wéi eng Sportarten hutt Dir gär?)", en:"(kind of) sport (What sports do you like?)"},
+  {id:30, lu:"d'Ekippesportart (# d'Eenzelsportart)", en:"team sport (# individual sport)"},
+  {id:31, lu:"Ech hu léiwer Ekippesportarte wéi Eenzelsportarten.", en:"I prefer team sports over solo sports. (lit. I like team sports more than solo sports.)"},
+  {id:32, lu:"lafe goen", en:"to go running"},
+  {id:33, lu:"eng sëlleg", en:"many, countless"},
+  {id:34, lu:"All Woch ginn ech eng sëlleg Kilometer an de Bësch lafen.", en:"Every week, I go running countless/many kilometers in the woods."},
+  {id:35, lu:"Vëlo fueren", en:"to bike"},
+  {id:36, lu:"Am Summer fueren ech vill Vëlo.", en:"In the summer, I bike a lot."},
+  {id:37, lu:"trainéieren", en:"to train"},
+  {id:38, lu:"Ech trainéieren zwee mol pro Woch.", en:"I train twice a week."},
+  {id:39, lu:"sportlech", en:"sporty"},
+  {id:40, lu:"Ech sinn net sportlech.", en:"I am not sporty."},
+  {id:41, lu:"sportlech Aktiviéiten", en:"physical activities"}
+];
+
+const STATS_KEY = "luxoFlashStats_v1";
+const LAST_KEY  = "luxoFlashLast_v1";
+
+function loadStats(){
+  try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
+  catch(e){ return {}; }
+}
+function saveStats(s){ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }
+function loadLast(){
+  try{ return JSON.parse(localStorage.getItem(LAST_KEY)); }
+  catch(e){ return null; }
+}
+function saveLast(obj){ localStorage.setItem(LAST_KEY, JSON.stringify(obj)); }
+
+// Weighted shuffle (Efraimidis–Spirakis): phrases with a worse
+// track record for this direction get a higher chance of coming
+// up earlier, without ever being fully excluded or guaranteed.
+function weightedShuffle(items, direction, stats){
+  return items
+    .map(item => {
+      const key = item.id + "_" + direction;
+      const s = stats[key];
+      const failRate = (s && s.seen > 0) ? (s.failed / s.seen) : 0;
+      const weight = 1 + failRate * 4;
+      const u = Math.random();
+      return {item, sortKey: Math.pow(u, 1 / weight)};
+    })
+    .sort((a, b) => b.sortKey - a.sortKey)
+    .map(x => x.item);
+}
+
+function recordAnswer(id, direction, correct){
+  const stats = loadStats();
+  const key = id + "_" + direction;
+  const s = stats[key] || {seen:0, failed:0};
+  s.seen += 1;
+  if(!correct) s.failed += 1;
+  stats[key] = s;
+  saveStats(stats);
+}
+
+// -----------------------------------------------------------------
+// Navigation
+// -----------------------------------------------------------------
+const screens = {
+  home: document.getElementById("screen-home"),
+  session: document.getElementById("screen-session"),
+  results: document.getElementById("screen-results")
+};
+function showScreen(name){
+  Object.values(screens).forEach(s => s.classList.remove("active"));
+  screens[name].classList.add("active");
+}
+
+// -----------------------------------------------------------------
+// Session state
+// -----------------------------------------------------------------
+let session = null; // {direction, queue:[phrase,...], index, results:[{id,correct}]}
+
+function startSession(direction, poolIds){
+  const stats = loadStats();
+  const pool = poolIds
+    ? PHRASES.filter(p => poolIds.includes(p.id))
+    : PHRASES;
+  const queue = weightedShuffle(pool, direction, stats);
+  session = {direction, queue, index:0, results:[]};
+  showScreen("session");
+  renderCard();
+}
+
+function currentPhrase(){ return session.queue[session.index]; }
+
+function renderCard(){
+  const p = currentPhrase();
+  const promptText = session.direction === "lu-en" ? p.lu : p.en;
+  const answerText = session.direction === "lu-en" ? p.en : p.lu;
+
+  document.getElementById("prompt-text").textContent = promptText;
+  document.getElementById("answer-text").textContent = answerText;
+  document.getElementById("answer-text").style.display = "none";
+  document.getElementById("divider").style.display = "none";
+  document.getElementById("tap-hint").style.display = "block";
+  document.getElementById("card").classList.remove("flash-correct","flash-incorrect");
+  document.getElementById("card").dataset.revealed = "false";
+
+  document.getElementById("btn-no").disabled = true;
+  document.getElementById("btn-yes").disabled = true;
+
+  const total = session.queue.length;
+  document.getElementById("progress-label").textContent = (session.index+1) + " / " + total;
+  document.getElementById("progress-fill").style.width = ((session.index)/total*100) + "%";
+}
+
+function revealAnswer(){
+  const card = document.getElementById("card");
+  if(card.dataset.revealed === "true") return;
+  card.dataset.revealed = "true";
+  document.getElementById("tap-hint").style.display = "none";
+  document.getElementById("divider").style.display = "block";
+  document.getElementById("answer-text").style.display = "block";
+  document.getElementById("btn-no").disabled = false;
+  document.getElementById("btn-yes").disabled = false;
+}
+
+function answerCard(correct){
+  const card = document.getElementById("card");
+  if(card.dataset.revealed !== "true") return;
+  const p = currentPhrase();
+  recordAnswer(p.id, session.direction, correct);
+  session.results.push({id:p.id, correct});
+
+  card.classList.add(correct ? "flash-correct" : "flash-incorrect");
+  document.getElementById("btn-no").disabled = true;
+  document.getElementById("btn-yes").disabled = true;
+
+  setTimeout(() => {
+    session.index += 1;
+    if(session.index >= session.queue.length){
+      endSession();
+    } else {
+      renderCard();
+    }
+  }, 260);
+}
+
+function endSession(){
+  const total = session.results.length;
+  const correctCount = session.results.filter(r => r.correct).length;
+  const missedIds = session.results.filter(r => !r.correct).map(r => r.id);
+
+  saveLast({direction:session.direction, correct:correctCount, total, ts:Date.now()});
+
+  document.getElementById("score-big").textContent = correctCount + " / " + total;
+  const pct = total ? Math.round(correctCount/total*100) : 0;
+  document.getElementById("score-sub").textContent = pct + "% correct · " +
+    (session.direction === "lu-en" ? "Lëtzebuergesch → Anglais" : "Anglais → Lëtzebuergesch");
+
+  const list = document.getElementById("missed-list");
+  list.innerHTML = "";
+  if(missedIds.length === 0){
+    const li = document.createElement("li");
+    li.className = "no-missed";
+    li.textContent = "Aucune phrase ratée. Bravo !";
+    list.parentElement.insertBefore(li, list);
+  } else {
+    missedIds.forEach(id => {
+      const p = PHRASES.find(x => x.id === id);
+      const li = document.createElement("li");
+      li.innerHTML = '<div class="missed-lu">' + escapeHtml(p.lu) + '</div><div class="missed-en">' + escapeHtml(p.en) + '</div>';
+      list.appendChild(li);
+    });
+  }
+
+  session.missedIds = missedIds;
+  showScreen("results");
+}
+
+function escapeHtml(str){
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderRecap(){
+  const last = loadLast();
+  const recap = document.getElementById("recap");
+  if(!last){ recap.textContent = ""; return; }
+  const dirLabel = last.direction === "lu-en" ? "Lëtzebuergesch → Anglais" : "Anglais → Lëtzebuergesch";
+  recap.textContent = "Dernière session : " + last.correct + " / " + last.total + " · " + dirLabel;
+}
+
+// -----------------------------------------------------------------
+// Events
+// -----------------------------------------------------------------
+document.querySelectorAll(".dir-btn").forEach(btn => {
+  btn.addEventListener("click", () => startSession(btn.dataset.dir));
+});
+
+const card = document.getElementById("card");
+card.addEventListener("click", revealAnswer);
+card.addEventListener("keydown", e => {
+  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); revealAnswer(); }
+});
+
+document.getElementById("btn-no").addEventListener("click", () => answerCard(false));
+document.getElementById("btn-yes").addEventListener("click", () => answerCard(true));
+
+document.getElementById("close-session").addEventListener("click", () => {
+  showScreen("home");
+  renderRecap();
+});
+
+document.getElementById("btn-replay-missed").addEventListener("click", () => {
+  if(session.missedIds.length === 0){ startSession(session.direction); }
+  else { startSession(session.direction, session.missedIds); }
+});
+document.getElementById("btn-restart-all").addEventListener("click", () => {
+  startSession(session.direction);
+});
+document.getElementById("btn-home").addEventListener("click", () => {
+  showScreen("home");
+  renderRecap();
+});
+
+document.getElementById("reset-stats").addEventListener("click", () => {
+  if(confirm("Réinitialiser toutes les statistiques (progression par phrase et dernière session) ?")){
+    localStorage.removeItem(STATS_KEY);
+    localStorage.removeItem(LAST_KEY);
+    renderRecap();
+  }
+});
+
+renderRecap();
+</script>
+</body>
+</html>
