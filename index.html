@@ -26,7 +26,7 @@
     --incorrect:#B23A48;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  button, .replay-btn, .dir-btn, .action-btn, .close-btn, .reset-link{
+  button, .dir-btn, .action-btn, .close-btn, .reset-link{
     -webkit-user-select:none;
     user-select:none;
     -webkit-touch-callout:none;
@@ -155,15 +155,6 @@
     line-height:1.35;
     color:var(--blue-deep);
   }
-  .replay-btn{
-    background:none;
-    color:var(--ink-soft);
-    font-size:0.85rem;
-    padding:4px 10px;
-    border:1px solid var(--rule);
-    border-radius:20px;
-  }
-  .replay-btn:active{transform:translateY(1px);}
   .card.flash-correct{border-color:var(--correct);}
   .card.flash-incorrect{border-color:var(--incorrect);}
 
@@ -251,7 +242,6 @@
         <div class="tap-hint" id="tap-hint">Touche pour révéler</div>
         <div class="divider" id="divider" style="display:none;"></div>
         <div class="answer-text" id="answer-text" style="display:none;"></div>
-        <button type="button" class="replay-btn" id="replay-audio" style="display:none;">&#128266; réécouter</button>
       </div>
     </div>
 
@@ -259,7 +249,6 @@
       <button class="thumb-btn no" id="btn-no" disabled>Je ne savais pas</button>
       <button class="thumb-btn yes" id="btn-yes" disabled>Je savais</button>
     </div>
-    <audio id="phrase-audio" preload="none"></audio>
   </section>
 
   <!-- RESULTS -->
@@ -446,7 +435,6 @@ function renderCard(){
   document.getElementById("answer-text").style.display = "none";
   document.getElementById("divider").style.display = "none";
   document.getElementById("tap-hint").style.display = "block";
-  document.getElementById("replay-audio").style.display = "none";
   document.getElementById("card").classList.remove("flash-correct","flash-incorrect");
   document.getElementById("card").dataset.revealed = "false";
 
@@ -458,15 +446,6 @@ function renderCard(){
   document.getElementById("progress-fill").style.width = ((session.index)/total*100) + "%";
 }
 
-// Plays the Lëtzebuergesch audio for a phrase, if the file exists.
-// Silently does nothing if the file is missing (e.g. not recorded yet),
-// so the app keeps working normally while the audio library is incomplete.
-function playPhraseAudio(id){
-  const audio = document.getElementById("phrase-audio");
-  audio.src = "audio/" + id + ".mp3";
-  audio.play().catch(() => {});
-}
-
 function revealAnswer(){
   const card = document.getElementById("card");
   if(card.dataset.revealed === "true") return;
@@ -476,10 +455,6 @@ function revealAnswer(){
   document.getElementById("answer-text").style.display = "block";
   document.getElementById("btn-no").disabled = false;
   document.getElementById("btn-yes").disabled = false;
-
-  const p = currentPhrase();
-  document.getElementById("replay-audio").style.display = "inline-block";
-  playPhraseAudio(p.id);
 }
 
 function answerCard(correct){
@@ -578,11 +553,6 @@ card.addEventListener("keydown", e => {
 
 document.getElementById("btn-no").addEventListener("click", () => answerCard(false));
 document.getElementById("btn-yes").addEventListener("click", () => answerCard(true));
-
-document.getElementById("replay-audio").addEventListener("click", (e) => {
-  e.stopPropagation();
-  playPhraseAudio(currentPhrase().id);
-});
 
 document.getElementById("close-session").addEventListener("click", () => {
   if(session.results.length === 0){
