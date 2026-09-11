@@ -77,6 +77,18 @@
   }
   .dir-btn .arrow{font-family:'Fraunces', serif; font-size:1.3rem; color:var(--blue-deep);}
   .dir-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--rule);}
+  .dir-meta{
+    font-size:0.8rem;
+    color:#8A7B5C;
+    margin:-8px 0 14px 4px;
+  }
+  .dir-meta button{
+    background:none;
+    color:#B7A57A;
+    text-decoration:underline;
+    font-size:inherit;
+    padding:0;
+  }
 
   .recap{
     margin-top:auto;
@@ -138,6 +150,15 @@
     line-height:1.35;
     color:var(--blue-deep);
   }
+  .replay-btn{
+    background:none;
+    color:var(--ink-soft);
+    font-size:0.85rem;
+    padding:4px 10px;
+    border:1px solid var(--rule);
+    border-radius:20px;
+  }
+  .replay-btn:active{transform:translateY(1px);}
   .card.flash-correct{border-color:var(--correct);}
   .card.flash-incorrect{border-color:var(--incorrect);}
 
@@ -198,16 +219,13 @@
   <!-- HOME -->
   <section id="screen-home" class="screen active">
     <h1>Luxo Cards</h1>
-    <p class="subtitle">41 phrases &middot; Sproochentest</p>
+    <p class="subtitle" id="subtitle"></p>
 
-    <button class="dir-btn" data-dir="lu-en">
-      <span>Lëtzebuergesch &rarr; Anglais</span>
-      <span class="arrow">&rarr;</span>
-    </button>
     <button class="dir-btn" data-dir="en-lu">
       <span>Anglais &rarr; Lëtzebuergesch</span>
       <span class="arrow">&rarr;</span>
     </button>
+    <div class="dir-meta" id="meta-en-lu"></div>
 
     <div class="recap" id="recap"></div>
     <button class="reset-link" id="reset-stats">Réinitialiser les statistiques</button>
@@ -228,6 +246,7 @@
         <div class="tap-hint" id="tap-hint">Touche pour révéler</div>
         <div class="divider" id="divider" style="display:none;"></div>
         <div class="answer-text" id="answer-text" style="display:none;"></div>
+        <button type="button" class="replay-btn" id="replay-audio" style="display:none;">&#128266; réécouter</button>
       </div>
     </div>
 
@@ -235,6 +254,7 @@
       <button class="thumb-btn no" id="btn-no" disabled>Je ne savais pas</button>
       <button class="thumb-btn yes" id="btn-yes" disabled>Je savais</button>
     </div>
+    <audio id="phrase-audio" preload="none"></audio>
   </section>
 
   <!-- RESULTS -->
@@ -260,28 +280,21 @@
 // append with new ids so past stats (per id) stay valid.
 // -----------------------------------------------------------------
 const PHRASES = [
-  {id:1, lu:"Wéi geet et (dir/Iech)?", en:"How's it going? (How are you? (casual)/(polite))"},
-  {id:2, lu:"(Mir geet et) Gutt, an dir/Iech?", en:"(I'm doing) Fine, and you? (casual/polite)"},
   {id:3, lu:"Mir geet et och gutt, merci!", en:"I'm doing fine too, thank you!"},
-  {id:4, lu:"Wéi ass däin/Ären Numm?", en:"What's your name? (casual/polite)"},
-  {id:5, lu:"Vu wou kënns du/kommt Dir?", en:"Where do you come from? (casual/polite)"},
-  {id:6, lu:"Zënter wéini liefs du/lieft Dir zu Lëtzebuerg?", en:"Since when are you living in Luxembourg?"},
-  {id:7, lu:"Wéini bass du/sidd Dir gebuer?", en:"When are you (pol/casual) born?"},
-  {id:8, lu:"Schéin dech/Iech kennenzeléieren.", en:"Nice to meet you (casual/polite)"},
   {id:9, lu:"Merci fir d'Gespréich.", en:"Thanks for the talk."},
   {id:10, lu:"Nach e schéinen Dag.", en:"Have a nice day."},
-  {id:11, lu:"Dir/Iech och e schéinen Dag.", en:"A nice day to you (casual/polite) too."},
+  {id:11, lu:"Dir och e schéinen Dag.", en:"A nice day to you too."},
   {id:12, lu:"Merci gläichfalls!", en:"Thanks and the same to you!"},
   {id:13, lu:"Bis eng aner Kéier.", en:"See you/Until another time."},
   {id:14, lu:"Bis demnächst.", en:"See you soon. (lit. until soon)"},
   {id:15, lu:"Wéi vill Auer ass et?", en:"What time is it?"},
-  {id:16, lu:"Et ass Mëtternuecht (/Hallefnuecht).", en:"Midnight"},
+  {id:16, lu:"Et ass Mëtternuecht.", en:"Midnight"},
   {id:17, lu:"hei", en:"here"},
   {id:18, lu:"do", en:"there"},
   {id:19, lu:"dohannen", en:"over there"},
   {id:20, lu:"Sport maachen", en:"to exercise"},
   {id:21, lu:"Ech maache gär Sport.", en:"I like to exercise."},
-  {id:22, lu:"pro Woch/d'Woch", en:"per week"},
+  {id:22, lu:"pro Woch", en:"per week"},
   {id:23, lu:"an de Fitness goen", en:"to go to the gym"},
   {id:24, lu:"Ech ginn dräi mol pro Woch an de Fitness.", en:"I go to the gym three times per week."},
   {id:25, lu:"Gewiichter", en:"weights"},
@@ -300,11 +313,26 @@ const PHRASES = [
   {id:38, lu:"Ech trainéieren zwee mol pro Woch.", en:"I train twice a week."},
   {id:39, lu:"sportlech", en:"sporty"},
   {id:40, lu:"Ech sinn net sportlech.", en:"I am not sporty."},
-  {id:41, lu:"sportlech Aktiviéiten", en:"physical activities"}
+  {id:41, lu:"sportlech Aktiviéiten", en:"physical activities"},
+  {id:42, lu:"Wéi geet et dir?", en:"How's it going? (casual)"},
+  {id:43, lu:"Wéi geet et Iech?", en:"How's it going? (polite)"},
+  {id:44, lu:"(Mir geet et) Gutt, an dir?", en:"(I'm doing) Fine, and you? (casual)"},
+  {id:45, lu:"(Mir geet et) Gutt, an Iech?", en:"(I'm doing) Fine, and you? (polite)"},
+  {id:46, lu:"Wéi ass däin Numm?", en:"What's your name? (casual)"},
+  {id:47, lu:"Wéi ass Ären Numm?", en:"What's your name? (polite)"},
+  {id:48, lu:"Vu wou kënns du?", en:"Where do you come from? (casual)"},
+  {id:49, lu:"Vu wou kommt Dir?", en:"Where do you come from? (polite)"},
+  {id:50, lu:"Zënter wéini liefs du zu Lëtzebuerg?", en:"Since when are you living in Luxembourg? (casual)"},
+  {id:51, lu:"Zënter wéini lieft Dir zu Lëtzebuerg?", en:"Since when are you living in Luxembourg? (polite)"},
+  {id:52, lu:"Wéini bass du gebuer?", en:"When are you born? (casual)"},
+  {id:53, lu:"Wéini sidd Dir gebuer?", en:"When are you born? (polite)"},
+  {id:54, lu:"Schéin dech kennenzeléieren.", en:"Nice to meet you (casual)"},
+  {id:55, lu:"Schéin Iech kennenzeléieren.", en:"Nice to meet you (polite)"}
 ];
 
 const STATS_KEY = "luxoFlashStats_v1";
 const LAST_KEY  = "luxoFlashLast_v1";
+const MASTERY_THRESHOLD = 5; // consecutive correct answers before a phrase is retired from a direction
 
 function loadStats(){
   try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
@@ -337,11 +365,29 @@ function weightedShuffle(items, direction, stats){
 function recordAnswer(id, direction, correct){
   const stats = loadStats();
   const key = id + "_" + direction;
-  const s = stats[key] || {seen:0, failed:0};
+  const s = stats[key] || {seen:0, failed:0, streak:0};
   s.seen += 1;
-  if(!correct) s.failed += 1;
+  if(correct){
+    s.streak = (s.streak || 0) + 1;
+  } else {
+    s.failed += 1;
+    s.streak = 0;
+  }
   stats[key] = s;
   saveStats(stats);
+}
+
+// A phrase is "mastered" for a direction once it's been answered
+// correctly MASTERY_THRESHOLD times in a row in that direction.
+// Mastered phrases are excluded from normal sessions in that
+// direction (but can still be pulled up via the "réviser" link).
+function getMasteredIds(direction, stats){
+  return PHRASES
+    .filter(p => {
+      const s = stats[p.id + "_" + direction];
+      return s && s.streak >= MASTERY_THRESHOLD;
+    })
+    .map(p => p.id);
 }
 
 // -----------------------------------------------------------------
@@ -364,9 +410,19 @@ let session = null; // {direction, queue:[phrase,...], index, results:[{id,corre
 
 function startSession(direction, poolIds){
   const stats = loadStats();
-  const pool = poolIds
-    ? PHRASES.filter(p => poolIds.includes(p.id))
-    : PHRASES;
+  let pool;
+  if(poolIds){
+    // explicit pool (e.g. replaying missed or reviewing mastered ones):
+    // mastery filter does not apply here.
+    pool = PHRASES.filter(p => poolIds.includes(p.id));
+  } else {
+    const mastered = getMasteredIds(direction, stats);
+    pool = PHRASES.filter(p => !mastered.includes(p.id));
+  }
+  if(pool.length === 0){
+    alert("Toutes les phrases sont déjà maîtrisées dans ce sens (" + MASTERY_THRESHOLD + " bonnes réponses d'affilée). Utilise le lien \"réviser\" pour les repratiquer, ou réinitialise les statistiques.");
+    return;
+  }
   const queue = weightedShuffle(pool, direction, stats);
   session = {direction, queue, index:0, results:[]};
   showScreen("session");
@@ -385,6 +441,7 @@ function renderCard(){
   document.getElementById("answer-text").style.display = "none";
   document.getElementById("divider").style.display = "none";
   document.getElementById("tap-hint").style.display = "block";
+  document.getElementById("replay-audio").style.display = "none";
   document.getElementById("card").classList.remove("flash-correct","flash-incorrect");
   document.getElementById("card").dataset.revealed = "false";
 
@@ -396,6 +453,15 @@ function renderCard(){
   document.getElementById("progress-fill").style.width = ((session.index)/total*100) + "%";
 }
 
+// Plays the Lëtzebuergesch audio for a phrase, if the file exists.
+// Silently does nothing if the file is missing (e.g. not recorded yet),
+// so the app keeps working normally while the audio library is incomplete.
+function playPhraseAudio(id){
+  const audio = document.getElementById("phrase-audio");
+  audio.src = "audio/" + id + ".mp3";
+  audio.play().catch(() => {});
+}
+
 function revealAnswer(){
   const card = document.getElementById("card");
   if(card.dataset.revealed === "true") return;
@@ -405,6 +471,10 @@ function revealAnswer(){
   document.getElementById("answer-text").style.display = "block";
   document.getElementById("btn-no").disabled = false;
   document.getElementById("btn-yes").disabled = false;
+
+  const p = currentPhrase();
+  document.getElementById("replay-audio").style.display = "inline-block";
+  playPhraseAudio(p.id);
 }
 
 function answerCard(correct){
@@ -474,6 +544,20 @@ function renderRecap(){
   recap.textContent = "Dernière session : " + last.correct + " / " + last.total + " · " + dirLabel;
 }
 
+function renderMasteryInfo(){
+  const stats = loadStats();
+  const dir = "en-lu";
+  const mastered = getMasteredIds(dir, stats);
+  const el = document.getElementById("meta-" + dir);
+  if(!el) return;
+  if(mastered.length === 0){
+    el.textContent = "";
+    return;
+  }
+  el.innerHTML = mastered.length + " / " + PHRASES.length + " maîtrisées &middot; <button type=\"button\">réviser</button>";
+  el.querySelector("button").addEventListener("click", () => startSession(dir, mastered));
+}
+
 // -----------------------------------------------------------------
 // Events
 // -----------------------------------------------------------------
@@ -490,10 +574,16 @@ card.addEventListener("keydown", e => {
 document.getElementById("btn-no").addEventListener("click", () => answerCard(false));
 document.getElementById("btn-yes").addEventListener("click", () => answerCard(true));
 
+document.getElementById("replay-audio").addEventListener("click", (e) => {
+  e.stopPropagation();
+  playPhraseAudio(currentPhrase().id);
+});
+
 document.getElementById("close-session").addEventListener("click", () => {
   if(session.results.length === 0){
     showScreen("home");
     renderRecap();
+    renderMasteryInfo();
     return;
   }
   if(confirm("Terminer la session maintenant ? Tu as répondu à " + session.results.length + " / " + session.queue.length + " phrases.")){
@@ -511,6 +601,7 @@ document.getElementById("btn-restart-all").addEventListener("click", () => {
 document.getElementById("btn-home").addEventListener("click", () => {
   showScreen("home");
   renderRecap();
+  renderMasteryInfo();
 });
 
 document.getElementById("reset-stats").addEventListener("click", () => {
@@ -518,10 +609,13 @@ document.getElementById("reset-stats").addEventListener("click", () => {
     localStorage.removeItem(STATS_KEY);
     localStorage.removeItem(LAST_KEY);
     renderRecap();
+    renderMasteryInfo();
   }
 });
 
+document.getElementById("subtitle").textContent = PHRASES.length + " phrases · Sproochentest";
 renderRecap();
+renderMasteryInfo();
 </script>
 </body>
 </html>
