@@ -82,17 +82,55 @@
   }
   .dir-btn .arrow{font-family:'Fraunces', serif; font-size:1.3rem; color:var(--blue-deep);}
   .dir-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--rule);}
-  .dir-meta{
-    font-size:0.8rem;
-    color:#8A7B5C;
-    margin:-8px 0 14px 4px;
+
+  .stats-summary{
+    display:flex;
+    gap:12px;
+    margin-bottom:18px;
   }
-  .dir-meta button{
+  .stat-pill{
+    flex:1;
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:10px;
+    padding:14px 12px;
+    text-align:center;
+  }
+  .stat-number{
+    display:block;
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.8rem;
+    line-height:1.1;
+  }
+  .stat-label{
+    display:block;
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  .stats-section{ margin-bottom:10px; }
+  .stats-toggle{
+    width:100%;
     background:none;
-    color:#B7A57A;
-    text-decoration:underline;
-    font-size:inherit;
-    padding:0;
+    color:var(--paper);
+    border:1px solid #4A4232;
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:0.92rem;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .stats-toggle .chevron{
+    color:#8A7B5C;
+    transition:transform .15s ease;
+  }
+  .stats-toggle.open .chevron{ transform:rotate(180deg); }
+  .stats-list{
+    max-height:220px;
+    overflow-y:auto;
+    margin-top:8px;
   }
 
   .recap{
@@ -196,6 +234,7 @@
   }
   .missed-lu{font-weight:600;}
   .missed-en{color:var(--ink-soft); font-size:0.92rem; margin-top:2px;}
+  .missed-extra{color:var(--blue-deep); font-size:0.78rem; margin-top:4px;}
   .no-missed{color:#B7A57A; padding:12px 0;}
 
   .actions{display:flex; flex-direction:column; gap:12px; margin-top:18px;}
@@ -217,11 +256,45 @@
     <h1>Luxo Cards</h1>
     <p class="subtitle" id="subtitle"></p>
 
-    <button class="dir-btn" data-dir="en-lu">
-      <span>Anglais &rarr; Lëtzebuergesch</span>
+    <div class="stats-summary">
+      <div class="stat-pill">
+        <span class="stat-number" id="stat-mastered-count">0</span>
+        <span class="stat-label">maîtrisées</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-number" id="stat-pending-count">0</span>
+        <span class="stat-label">à pratiquer</span>
+      </div>
+    </div>
+
+    <div class="stats-section">
+      <button type="button" class="stats-toggle" id="toggle-mastered">
+        <span>Phrases maîtrisées</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+      <ul class="missed-list stats-list" id="mastered-list" style="display:none;"></ul>
+    </div>
+
+    <div class="stats-section">
+      <button type="button" class="stats-toggle" id="toggle-pending">
+        <span>Phrases à pratiquer</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+      <ul class="missed-list stats-list" id="pending-list" style="display:none;"></ul>
+    </div>
+
+    <div class="stats-section">
+      <button type="button" class="stats-toggle" id="toggle-history">
+        <span>Historique des sessions</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+      <ul class="missed-list stats-list" id="history-list" style="display:none;"></ul>
+    </div>
+
+    <button class="dir-btn" id="start-session-btn">
+      <span>Commencer une session</span>
       <span class="arrow">&rarr;</span>
     </button>
-    <div class="dir-meta" id="meta-en-lu"></div>
 
     <div class="recap" id="recap"></div>
     <button class="reset-link" id="reset-stats">Réinitialiser les statistiques</button>
@@ -326,7 +399,10 @@ const PHRASES = [
 
 const STATS_KEY = "luxoFlashStats_v1";
 const LAST_KEY  = "luxoFlashLast_v1";
-const MASTERY_THRESHOLD = 5; // consecutive correct answers before a phrase is retired from a direction
+const SESSIONS_KEY = "luxoFlashSessions_v1";
+const MASTERY_THRESHOLD = 5; // consecutive correct answers before a phrase is considered mastered
+const REVIEW_INTERVAL_MS = 14 * 24 * 60 * 60 * 1000; // mastered phrases resurface after 14 days
+const MAX_SESSIONS_LOGGED = 300; // keep the log bounded; way more than needed in practice
 
 function loadStats(){
   try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
@@ -338,6 +414,17 @@ function loadLast(){
   catch(e){ return null; }
 }
 function saveLast(obj){ localStorage.setItem(LAST_KEY, JSON.stringify(obj)); }
+
+function loadSessions(){
+  try{ return JSON.parse(localStorage.getItem(SESSIONS_KEY)) || []; }
+  catch(e){ return []; }
+}
+function appendSession(record){
+  const sessions = loadSessions();
+  sessions.push(record);
+  while(sessions.length > MAX_SESSIONS_LOGGED) sessions.shift();
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+}
 
 // Weighted shuffle (Efraimidis–Spirakis): phrases with a worse
 // track record for this direction get a higher chance of coming
@@ -359,13 +446,21 @@ function weightedShuffle(items, direction, stats){
 function recordAnswer(id, direction, correct){
   const stats = loadStats();
   const key = id + "_" + direction;
-  const s = stats[key] || {seen:0, failed:0, streak:0};
+  const s = stats[key] || {seen:0, failed:0, streak:0, masteredAt:null, attemptsToMaster:null, lastSeenAt:null};
   s.seen += 1;
+  s.lastSeenAt = Date.now();
   if(correct){
     s.streak = (s.streak || 0) + 1;
+    if(s.streak >= MASTERY_THRESHOLD && !s.masteredAt){
+      // first time reaching mastery on this streak
+      s.masteredAt = Date.now();
+      s.attemptsToMaster = s.seen;
+    }
   } else {
     s.failed += 1;
     s.streak = 0;
+    s.masteredAt = null;
+    s.attemptsToMaster = null;
   }
   stats[key] = s;
   saveStats(stats);
@@ -373,13 +468,32 @@ function recordAnswer(id, direction, correct){
 
 // A phrase is "mastered" for a direction once it's been answered
 // correctly MASTERY_THRESHOLD times in a row in that direction.
-// Mastered phrases are excluded from normal sessions in that
-// direction (but can still be pulled up via the "réviser" link).
 function getMasteredIds(direction, stats){
   return PHRASES
     .filter(p => {
       const s = stats[p.id + "_" + direction];
       return s && s.streak >= MASTERY_THRESHOLD;
+    })
+    .map(p => p.id);
+}
+
+// A mastered phrase is "due for review" once REVIEW_INTERVAL_MS has
+// passed since it was last seen — it then resurfaces in normal
+// sessions like any other phrase, instead of staying retired forever.
+function isDueForReview(s){
+  if(!s || s.streak < MASTERY_THRESHOLD) return false;
+  const last = s.lastSeenAt || 0;
+  return (Date.now() - last) >= REVIEW_INTERVAL_MS;
+}
+
+// Phrases eligible for a normal session: not (yet) mastered, or
+// mastered but due for a spaced-repetition check-in.
+function getActivePoolIds(direction, stats){
+  return PHRASES
+    .filter(p => {
+      const s = stats[p.id + "_" + direction];
+      if(!s || s.streak < MASTERY_THRESHOLD) return true;
+      return isDueForReview(s);
     })
     .map(p => p.id);
 }
@@ -406,15 +520,14 @@ function startSession(direction, poolIds){
   const stats = loadStats();
   let pool;
   if(poolIds){
-    // explicit pool (e.g. replaying missed or reviewing mastered ones):
-    // mastery filter does not apply here.
+    // explicit pool (e.g. replaying missed ones): no filtering applied.
     pool = PHRASES.filter(p => poolIds.includes(p.id));
   } else {
-    const mastered = getMasteredIds(direction, stats);
-    pool = PHRASES.filter(p => !mastered.includes(p.id));
+    const activeIds = getActivePoolIds(direction, stats);
+    pool = PHRASES.filter(p => activeIds.includes(p.id));
   }
   if(pool.length === 0){
-    alert("Toutes les phrases sont déjà maîtrisées dans ce sens (" + MASTERY_THRESHOLD + " bonnes réponses d'affilée). Utilise le lien \"réviser\" pour les repratiquer, ou réinitialise les statistiques.");
+    alert("Toutes les phrases sont maîtrisées et aucune n'est encore due pour une révision (14 jours). Reviens dans quelques jours, ou réinitialise les statistiques.");
     return;
   }
   const queue = weightedShuffle(pool, direction, stats);
@@ -483,7 +596,15 @@ function endSession(){
   const correctCount = session.results.filter(r => r.correct).length;
   const missedIds = session.results.filter(r => !r.correct).map(r => r.id);
 
-  saveLast({direction:session.direction, correct:correctCount, total, ts:Date.now()});
+  const record = {
+    ts: Date.now(),
+    direction: session.direction,
+    correct: correctCount,
+    total: total,
+    results: session.results.slice() // [{id, correct}, ...]
+  };
+  saveLast(record);
+  appendSession(record);
 
   document.getElementById("score-big").textContent = correctCount + " / " + total;
   const pct = total ? Math.round(correctCount/total*100) : 0;
@@ -524,25 +645,100 @@ function renderRecap(){
   recap.textContent = "Dernière session : " + last.correct + " / " + last.total + " · " + dirLabel;
 }
 
-function renderMasteryInfo(){
-  const stats = loadStats();
-  const dir = "en-lu";
-  const mastered = getMasteredIds(dir, stats);
-  const el = document.getElementById("meta-" + dir);
-  if(!el) return;
-  if(mastered.length === 0){
-    el.textContent = "";
+function formatDate(ts){
+  return new Date(ts).toLocaleDateString("fr-FR", {day:"numeric", month:"short", year:"numeric"});
+}
+
+function renderPhraseList(elementId, ids, extraInfoFn){
+  const el = document.getElementById(elementId);
+  el.innerHTML = "";
+  if(ids.length === 0){
+    const li = document.createElement("li");
+    li.className = "no-missed";
+    li.textContent = "Aucune phrase ici pour l'instant.";
+    el.appendChild(li);
     return;
   }
-  el.innerHTML = mastered.length + " / " + PHRASES.length + " maîtrisées &middot; <button type=\"button\">réviser</button>";
-  el.querySelector("button").addEventListener("click", () => startSession(dir, mastered));
+  ids.forEach(id => {
+    const p = PHRASES.find(x => x.id === id);
+    const li = document.createElement("li");
+    let html = '<div class="missed-lu">' + escapeHtml(p.lu) + '</div><div class="missed-en">' + escapeHtml(p.en) + '</div>';
+    if(extraInfoFn){
+      const extra = extraInfoFn(id);
+      if(extra) html += '<div class="missed-extra">' + extra + '</div>';
+    }
+    li.innerHTML = html;
+    el.appendChild(li);
+  });
+}
+
+function renderHistory(){
+  const sessions = loadSessions().slice().reverse(); // most recent first
+  const el = document.getElementById("history-list");
+  el.innerHTML = "";
+  if(sessions.length === 0){
+    const li = document.createElement("li");
+    li.className = "no-missed";
+    li.textContent = "Aucune session enregistrée pour l'instant.";
+    el.appendChild(li);
+    return;
+  }
+  sessions.forEach(rec => {
+    const li = document.createElement("li");
+    const dirLabel = rec.direction === "lu-en" ? "Lëtzebuergesch → Anglais" : "Anglais → Lëtzebuergesch";
+    li.innerHTML = '<div class="missed-lu">' + formatDate(rec.ts) + ' · ' + rec.correct + ' / ' + rec.total + '</div><div class="missed-en">' + dirLabel + '</div>';
+    el.appendChild(li);
+  });
+}
+
+function renderStats(){
+  const stats = loadStats();
+  const dir = "en-lu";
+  const masteredIds = getMasteredIds(dir, stats);
+  const pendingIds = PHRASES.filter(p => !masteredIds.includes(p.id)).map(p => p.id);
+
+  document.getElementById("stat-mastered-count").textContent = masteredIds.length;
+  document.getElementById("stat-pending-count").textContent = pendingIds.length;
+
+  renderPhraseList("mastered-list", masteredIds, (id) => {
+    const s = stats[id + "_" + dir];
+    if(!s) return "";
+    const attempts = s.attemptsToMaster ? s.attemptsToMaster + " tentative" + (s.attemptsToMaster > 1 ? "s" : "") : "";
+    const nextReview = s.lastSeenAt ? formatDate(s.lastSeenAt + REVIEW_INTERVAL_MS) : "";
+    const parts = [];
+    if(attempts) parts.push("maîtrisée en " + attempts);
+    if(nextReview) parts.push("prochaine vérif. le " + nextReview);
+    return parts.join(" · ");
+  });
+  renderPhraseList("pending-list", pendingIds);
+  renderHistory();
 }
 
 // -----------------------------------------------------------------
 // Events
 // -----------------------------------------------------------------
-document.querySelectorAll(".dir-btn").forEach(btn => {
-  btn.addEventListener("click", () => startSession(btn.dataset.dir));
+document.getElementById("start-session-btn").addEventListener("click", () => startSession("en-lu"));
+
+document.getElementById("toggle-mastered").addEventListener("click", () => {
+  const btn = document.getElementById("toggle-mastered");
+  const list = document.getElementById("mastered-list");
+  const open = list.style.display !== "none";
+  list.style.display = open ? "none" : "block";
+  btn.classList.toggle("open", !open);
+});
+document.getElementById("toggle-pending").addEventListener("click", () => {
+  const btn = document.getElementById("toggle-pending");
+  const list = document.getElementById("pending-list");
+  const open = list.style.display !== "none";
+  list.style.display = open ? "none" : "block";
+  btn.classList.toggle("open", !open);
+});
+document.getElementById("toggle-history").addEventListener("click", () => {
+  const btn = document.getElementById("toggle-history");
+  const list = document.getElementById("history-list");
+  const open = list.style.display !== "none";
+  list.style.display = open ? "none" : "block";
+  btn.classList.toggle("open", !open);
 });
 
 const card = document.getElementById("card");
@@ -558,7 +754,7 @@ document.getElementById("close-session").addEventListener("click", () => {
   if(session.results.length === 0){
     showScreen("home");
     renderRecap();
-    renderMasteryInfo();
+    renderStats();
     return;
   }
   if(confirm("Terminer la session maintenant ? Tu as répondu à " + session.results.length + " / " + session.queue.length + " phrases.")){
@@ -576,21 +772,22 @@ document.getElementById("btn-restart-all").addEventListener("click", () => {
 document.getElementById("btn-home").addEventListener("click", () => {
   showScreen("home");
   renderRecap();
-  renderMasteryInfo();
+  renderStats();
 });
 
 document.getElementById("reset-stats").addEventListener("click", () => {
-  if(confirm("Réinitialiser toutes les statistiques (progression par phrase et dernière session) ?")){
+  if(confirm("Réinitialiser toutes les statistiques (progression par phrase et historique des sessions) ?")){
     localStorage.removeItem(STATS_KEY);
     localStorage.removeItem(LAST_KEY);
+    localStorage.removeItem(SESSIONS_KEY);
     renderRecap();
-    renderMasteryInfo();
+    renderStats();
   }
 });
 
 document.getElementById("subtitle").textContent = PHRASES.length + " phrases · Sproochentest";
 renderRecap();
-renderMasteryInfo();
+renderStats();
 </script>
 </body>
 </html>
